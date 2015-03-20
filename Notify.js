@@ -1,4 +1,4 @@
-Ext.define('Common.helper.Notify', {
+Ext.define('Ext.Notify', {
     singleton : true,
     container : null,
     options: {},
