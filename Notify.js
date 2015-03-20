@@ -1,12 +1,11 @@
-Ext.define('Ext.Notify', {
+Ext.define('Common.helper.Notify', {
     singleton : true,
     container : null,
-    listener : null,
     options: {},
 
-    requires: [
-        'Ext.SimpleEvent.List'
-    ],
+    mixins: {
+        observable: 'Ext.util.Observable'
+    },
 
     type: {
         error: 'error',
@@ -15,11 +14,8 @@ Ext.define('Ext.Notify', {
         warning: 'warning'
     },
 
-    constructor: function(params){
-        this.listener = new Ext.SimpleEvent.List(
-            'show',
-            'hide'
-        );
+    constructor: function(){
+        this.mixins.observable.constructor.call(this);
     },
 
     error: function(message, title, optionsOverride) {
@@ -166,6 +162,46 @@ Ext.define('Ext.Notify', {
             options = self.getOptions(),
             iconClass = map.iconClass || options.iconClass;
 
+        var hide = function(override) {
+                if (!element.dom){
+                    return;
+                }
+                clearTimeout(progressBar.intervalId);
+                return element[options.hideMethod]({
+                    duration: options.hideDuration,
+                    easing: options.hideEasing,
+                    callback: function () {
+                        self.removeNotify(element);
+                        if (options.onHidden && response.state !== 'hidden') {
+                            options.onHidden();
+                        }
+                        response.state = 'hidden';
+                        response.endTime = new Date();
+                        self.fireEvent('hide');
+                    }
+                });
+            },
+            delayedHide = function () {
+                if (options.timeOut > 0 || options.extendedTimeOut > 0) {
+                    intervalId = setTimeout(hide, options.extendedTimeOut);
+                    progressBar.maxHideTime = parseFloat(options.extendedTimeOut);
+                    progressBar.hideEta = new Date().getTime() + progressBar.maxHideTime;
+                }
+            },
+            stickAround = function () {
+                clearTimeout(intervalId);
+                progressBar.hideEta = 0;
+                element.stopAnimation();
+                element[options.showMethod]({
+                    duration: options.showDuration, 
+                    easing: options.showEasing
+                });
+            },
+            updateProgress = function () {
+                var percentage = ((progressBar.hideEta - (new Date().getTime())) / progressBar.maxHideTime) * 100;
+                progressElement.width(percentage + '%');
+            };
+
         if (options.preventDuplicates) {
             if (map.message === previousToast) {
                 return;
@@ -272,56 +308,15 @@ Ext.define('Ext.Notify', {
             });
         }
 
-        self.listener.fire('show');
+        self.fireEvent('show');
 
         if (options.debug && console) {
-            console.log(response);
+            Ext.log({
+                level: 'log'
+            },response);
         }
 
         return element;
-
-        function hide(override) {
-            if (!element.dom){
-                return;
-            }
-            clearTimeout(progressBar.intervalId);
-            return element[options.hideMethod]({
-                duration: options.hideDuration,
-                easing: options.hideEasing,
-                callback: function () {
-                    self.removeNotify(element);
-                    if (options.onHidden && response.state !== 'hidden') {
-                        options.onHidden();
-                    }
-                    response.state = 'hidden';
-                    response.endTime = new Date();
-                    self.listener.fire('hide');
-                }
-            });
-        }
-
-        function delayedHide() {
-            if (options.timeOut > 0 || options.extendedTimeOut > 0) {
-                intervalId = setTimeout(hide, options.extendedTimeOut);
-                progressBar.maxHideTime = parseFloat(options.extendedTimeOut);
-                progressBar.hideEta = new Date().getTime() + progressBar.maxHideTime;
-            }
-        }
-
-        function stickAround() {
-            clearTimeout(intervalId);
-            progressBar.hideEta = 0;
-            element.stopAnimation();
-            element[options.showMethod]({
-                duration: options.showDuration, 
-                easing: options.showEasing
-            });
-        }
-
-        function updateProgress() {
-            var percentage = ((progressBar.hideEta - (new Date().getTime())) / progressBar.maxHideTime) * 100;
-            progressElement.width(percentage + '%');
-        }
     },
 
     getOptions: function() {
